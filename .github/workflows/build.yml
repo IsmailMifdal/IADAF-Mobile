@@ -1,0 +1,30 @@
+name: Build
+
+# preprod = build de test, prod = build de publication.
+# La signature (keystore, certificats iOS) et l'envoi vers TestFlight / Google Play
+# sont ajoutés avec ISM-85 ; en attendant on vérifie que l'application se compile.
+on:
+  push:
+    branches: [preprod, prod]
+
+jobs:
+  android:
+    name: Build Android (${{ github.ref_name }})
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: "3.50.0"
+          cache: true
+      - run: flutter pub get
+      - run: flutter build appbundle --release --dart-define=API_MODE=${{ github.ref_name == 'prod' && 'real' || 'fake' }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-${{ github.ref_name }}-aab
+          path: build/app/outputs/bundle/release/*.aab

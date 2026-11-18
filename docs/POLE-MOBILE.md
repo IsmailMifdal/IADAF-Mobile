@@ -21,23 +21,29 @@ Kylian réalise le plan de travail du pôle : les tâches, leur ordre et qui fai
 | Branche | Rôle | Qui y fusionne |
 |---|---|---|
 | Branches de travail | Une par tâche, quelques jours au plus | Leur auteur y pousse ses commits |
-| `dev_v1` | Intégration de l'équipe : tout le travail validé | Kylian, après les vérifications et deux approbations |
-| `main` | Les versions qui partent en test (TestFlight, Google Play) et sur les stores | Kylian, par une PR `dev_v1` → `main` approuvée par Ismail |
+| `dev` | Intégration de l'équipe : tout le travail validé | Kylian, après les vérifications et deux approbations |
+| `preprod` | Les versions qui partent en test (TestFlight, Google Play test interne) | Kylian, par une PR `dev` → `preprod` approuvée par Ismail |
+| `prod` | Les versions publiées sur les stores | Kylian, par une PR `preprod` → `prod` approuvée par Ismail |
 
-1. Une tâche Linear, une branche, une PR. La branche part de **`dev_v1`** et porte
+1. Une tâche Linear, une branche, une PR. La branche part de **`dev`** et porte
    l'identifiant de la tâche : le nom copié depuis Linear (« Copy git branch name »),
    ou `<type>/ism-<n>-<sujet>`, par exemple `feat/ism-77-socle-flutter`.
 2. La branche est poussée **sur ce dépôt, pas sur un fork** : depuis un fork,
    GitHub ne donne pas à la CI le jeton SonarQube, et l'analyse de qualité ne
    tourne pas.
-3. La PR vise **`dev_v1`**. Sa description contient `Fixes ISM-<n>` : à la fusion,
+3. La PR vise **`dev`**. Sa description contient `Fixes ISM-<n>` : à la fusion,
    la tâche passe en Done dans Linear.
 4. Une PR reste petite : relisible en 20 minutes, sinon on la découpe.
 5. Fusion en **squash**, par Kylian, une fois les vérifications et les deux
    approbations obtenues.
 
-Il n'y a **pas de branche qui dure** en dehors de `dev_v1` et `main` : une branche
-qui vit des semaines s'éloigne de `dev_v1` et finit en conflits.
+Les PR de promotion (`dev` → `preprod`, `preprod` → `prod`) se fusionnent avec un
+**commit de fusion** (pas en squash), pour que les trois branches gardent le même
+historique et ne divergent pas. Chaque promotion déclenche le build correspondant
+(voir `.github/workflows/`).
+
+Il n'y a **pas de branche qui dure** en dehors de `dev`, `preprod` et `prod` : une branche
+qui vit des semaines s'éloigne de `dev` et finit en conflits.
 
 ## Les branches à créer
 
@@ -74,14 +80,14 @@ dans son plan de travail.
 | ISM-85 Builds de test TestFlight et Google Play | `chore/ism-85-builds-test` | Parcours d'intégration au vert sur les deux plateformes |
 | ISM-100 Publication sur les stores | `chore/ism-100-publication-stores` | Parcours d'intégration au vert sur la version publiée |
 
-Les branches ISM-78 et ISM-79 partent de `dev_v1` **après** la fusion d'ISM-77 : elles
+Les branches ISM-78 et ISM-79 partent de `dev` **après** la fusion d'ISM-77 : elles
 ont besoin du projet. ISM-80 attend l'API mobile du pôle Back (ISM-39 et ISM-40).
 
 ### Les commandes, du début à la fin d'une tâche
 
 ```bash
-# 1. Partir de dev_v1 à jour
-git switch dev_v1
+# 1. Partir de dev à jour
+git switch dev
 git pull
 
 # 2. Créer la branche de la tâche
@@ -94,18 +100,18 @@ git commit -m "feat: add navigation and mock screens (ISM-78)"
 # 4. Pousser sur ce dépôt (pas sur un fork)
 git push -u origin feat/ism-78-navigation-ecrans
 
-# 5. Ouvrir la PR vers dev_v1
-gh pr create --base dev_v1 \
+# 5. Ouvrir la PR vers dev
+gh pr create --base dev \
   --title "feat: navigation and mock screens (ISM-78)" \
   --body "Fixes ISM-78"
 
-# 6. Si dev_v1 a avancé pendant la relecture : se remettre à jour
+# 6. Si dev a avancé pendant la relecture : se remettre à jour
 git fetch origin
-git rebase origin/dev_v1
+git rebase origin/dev
 git push --force-with-lease          # seulement sur sa propre branche
 
 # 7. Après la fusion par Kylian : nettoyer
-git switch dev_v1
+git switch dev
 git pull
 git branch -d feat/ism-78-navigation-ecrans
 ```
@@ -474,7 +480,7 @@ Quand Kylian est l'auteur de la PR, la deuxième approbation est celle d'Ismail.
 
 Ces réglages rendent les règles ci-dessus automatiques.
 
-1. **Branches** : créer `dev_v1` depuis `main` et en faire la branche par défaut du
+1. **Branches** : créer `dev`, `preprod` et `prod` depuis `main`, faire de `dev` la branche par défaut du
    dépôt.
 2. **SonarQube Cloud** (Ismail, administrateur de l'organisation) :
    - importer le dépôt `IADAF-Mobile` dans l'organisation et choisir l'analyse
@@ -505,7 +511,7 @@ Ces réglages rendent les règles ci-dessus automatiques.
    on:
      pull_request:
      push:
-       branches: [dev_v1, main]
+       branches: [dev, preprod, prod]
 
    jobs:
      ci:
@@ -539,9 +545,9 @@ Ces réglages rendent les règles ci-dessus automatiques.
 5. **CODEOWNERS** : `.github/CODEOWNERS` avec la ligne
    `*  @SoulSkunk @IsmailMifdal` (Kylian et Ismail). L'approbation de Kylian est
    alors exigée sur chaque PR ; celle d'Ismail la remplace quand Kylian est l'auteur.
-6. **Protection des branches** `dev_v1` et `main` (Ismail, dans les réglages GitHub) :
+6. **Protection des branches** `dev`, `preprod` et `prod` (Ismail, dans les réglages GitHub) :
    PR obligatoire, deux approbations dont celle d'un propriétaire du code,
    vérification « CI (format, analyze, test, Sonar) » obligatoire, conversations
-   résolues, fusion en squash seulement, pas de force push.
+   résolues, fusion en squash vers `dev`, commit de fusion vers `preprod` et `prod`, pas de force push.
 7. **Linear** : ajouter `IADAF-Mobile` aux dépôts de l'intégration GitHub de Linear,
    pour que `Fixes ISM-<n>` relie les PR aux tâches.

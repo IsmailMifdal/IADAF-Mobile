@@ -1,0 +1,7 @@
+{
+  "@@locale": "fr",
+  "appTitle": "IADAF",
+  "@appTitle": {"description": "Nom de l'application"},
+  "welcome": "Bienvenue sur IADAF",
+  "@welcome": {"description": "Message d'accueil de l'écran d'accueil"}
+}
